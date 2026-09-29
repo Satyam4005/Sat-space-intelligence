@@ -262,13 +262,38 @@ CHART_LAYOUT = dict(
 # -----------------------------------------------------------------------------
 @st.cache_resource(show_spinner="⚡ Initializing PEGASUS AI engines…")
 def load_all():
-    models_dir = r"D:\Manganese\models"
-    prop_pkg     = joblib.load(os.path.join(models_dir, "prospectivity_xgb.joblib"))
-    shortfall_pkg= joblib.load(os.path.join(models_dir, "shortfall_xgb.joblib"))
-    shap_exp     = shap.TreeExplainer(prop_pkg["model"])
+    # Multi-platform path resolver (works on Windows, Linux, Streamlit Cloud)
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    possible_roots = [
+        os.path.abspath(os.path.join(curr_dir, "..")),
+        os.getcwd(),
+        curr_dir,
+        r"D:\Manganese"
+    ]
+    
+    models_dir = None
+    for root in possible_roots:
+        target = os.path.join(root, "models", "prospectivity_xgb.joblib")
+        if os.path.exists(target):
+            models_dir = os.path.join(root, "models")
+            break
+            
+    if not models_dir:
+        # Fallback if in same directory
+        models_dir = "models"
 
-    csv_path = r"D:\Manganese\data\processed\manganese_prospectivity.csv"
-    df = pd.read_csv(csv_path) if os.path.exists(csv_path) else None
+    csv_path = None
+    for root in possible_roots:
+        target = os.path.join(root, "data", "processed", "manganese_prospectivity.csv")
+        if os.path.exists(target):
+            csv_path = target
+            break
+
+    prop_pkg      = joblib.load(os.path.join(models_dir, "prospectivity_xgb.joblib"))
+    shortfall_pkg = joblib.load(os.path.join(models_dir, "shortfall_xgb.joblib"))
+    shap_exp      = shap.TreeExplainer(prop_pkg["model"])
+
+    df = pd.read_csv(csv_path) if (csv_path and os.path.exists(csv_path)) else None
 
     lime_exp = None
     if LIME_AVAILABLE and df is not None and LimeTabularExplainer is not None:
